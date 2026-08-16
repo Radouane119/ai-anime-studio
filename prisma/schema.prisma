@@ -1,0 +1,716 @@
+// AI Anime Studio — Production Enterprise Prisma Database Schema (3NF Compliant)
+// Datasource & Generator Configuration
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. AUTHENTICATION & MULTI-TENANCY
+// ==========================================
+
+enum AccountTypeRole {
+  SUPER_ADMIN
+  ADMIN
+  CREATOR
+  MEMBER
+  GUEST
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  STUDIO
+  ENTERPRISE
+}
+
+model User {
+  id              String             @id @default(uuid())
+  clerkId         String             @unique
+  email           String             @unique
+  name            String?
+  avatarUrl       String?
+  role            AccountTypeRole    @default(CREATOR)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+
+  profile         UserProfile?
+  sessions        Session[]
+  oauthAccounts   OAuthAccount[]
+  teamMemberships TeamMember[]
+  userRoles       UserRole[]
+  orgRoles        OrganizationRole[]
+  teamRoles       TeamRole[]
+  projects        Project[]          @relation("ProjectOwner")
+  marketplaceItems MarketplaceItem[]
+  orders          Order[]
+  posts           Post[]
+  comments        Comment[]
+  likes           Like[]
+  subscriptions   Subscription[]
+  aiRequests      AiRequestLog[]
+  auditLogs       AuditLog[]
+  apiKeys         ApiKey[]
+
+  @@index([email])
+  @@index([clerkId])
+}
+
+model UserProfile {
+  id                   String           @id @default(uuid())
+  userId               String           @unique
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username             String?          @unique
+  displayName          String?
+  bio                  String?          @db.Text
+  location             String?
+  website              String?
+  portfolioUrl         String?
+  coverUrl             String?
+  socialLinks          Json?
+  defaultVoiceId       String?
+  themePreference      String           @default("dark")
+  completionPercentage Int              @default(50)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  settings             UserSettings?
+  preferences          UserPreferences?
+}
+
+model UserSettings {
+  id              String      @id @default(uuid())
+  profileId       String      @unique
+  profile         UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  theme           String      @default("dark")
+  language        String      @default("en")
+  timezone        String      @default("UTC")
+  defaultVoiceId  String      @default("Gemini-Neural-JP-01")
+  defaultArtStyle String      @default("Shonen Cyberpunk High Contrast")
+  updatedAt       DateTime    @updatedAt
+}
+
+model UserPreferences {
+  id                 String      @id @default(uuid())
+  profileId          String      @unique
+  profile            UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  isPublicProfile    Boolean     @default(true)
+  emailNotifications Boolean     @default(true)
+  marketingEmails    Boolean     @default(false)
+  showInLeaderboard  Boolean     @default(true)
+  autoSaveDrafts     Boolean     @default(true)
+  updatedAt          DateTime    @updatedAt
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model OAuthAccount {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String
+  providerId   String
+  accessToken  String?  @db.Text
+  refreshToken String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@unique([provider, providerId])
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  logoUrl     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  teams       Team[]
+}
+
+model Team {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  members        TeamMember[]
+  projects       Project[]
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      UserRole @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  @@unique([teamId, userId])
+}
+
+// ==========================================
+// 2. PROJECT ENGINE & CORE DOMAINS
+// ==========================================
+
+enum AnimeGenre {
+  SHONEN
+  SEINEN
+  ISAKAI
+  CYBERPUNK
+  SLICE_OF_LIFE
+  MECHA
+  FANTASY
+  ROMANCE
+  THRILLER
+}
+
+enum ProductionFormat {
+  LIGHT_NOVEL
+  MANGA_WEBTOON
+  ANIME_STORYBOARD
+  SHORT_ANIME_FILM
+  FULL_SERIES
+}
+
+model Project {
+  id           String           @id @default(uuid())
+  ownerId      String
+  owner        User             @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  teamId       String?
+  team         Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  title        String
+  tagline      String?
+  synopsis     String?          @db.Text
+  genre        AnimeGenre       @default(SHONEN)
+  format       ProductionFormat @default(MANGA_WEBTOON)
+  artStyle     String?
+  aspectRatio  String           @default("16:9")
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  deletedAt    DateTime?
+
+  stories      Story[]
+  characters   Character[]
+  worlds       World[]
+  storyboards  Storyboard[]
+  mangaProjects MangaProject[]
+  animations   AnimationProject[]
+  voiceClips   VoiceClip[]
+  musicTracks  MusicTrack[]
+  assets       Asset[]
+
+  @@index([ownerId])
+  @@index([teamId])
+}
+
+// ==========================================
+// 3. NOVEL & SCRIPT STUDIO
+// ==========================================
+
+model Story {
+  id          String    @id @default(uuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  summary     String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  chapters    Chapter[]
+}
+
+model Chapter {
+  id          String   @id @default(uuid())
+  storyId     String
+  story       Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  order       Int
+  title       String
+  content     String   @db.Text
+  aiPrompt    String?  @db.Text
+  wordCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  scenes      Scene[]
+
+  @@index([storyId, order])
+}
+
+model Scene {
+  id          String   @id @default(uuid())
+  chapterId   String
+  chapter     Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  order       Int
+  title       String?
+  setting     String?
+  content     String   @db.Text
+  createdAt   DateTime @default(now())
+}
+
+// ==========================================
+// 4. CHARACTER LOREBOOK STUDIO
+// ==========================================
+
+model Character {
+  id             String    @id @default(uuid())
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name           String
+  role           String    // Protagonist, Antagonist, Supporting
+  archetype      String
+  backstory      String?   @db.Text
+  signatureMove  String?
+  visualPrompt   String?   @db.Text
+  avatarUrl      String?
+  strengthStat   Int       @default(50)
+  magicStat      Int       @default(50)
+  agilityStat    Int       @default(50)
+  defenseStat    Int       @default(50)
+  intelligenceStat Int     @default(50)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  voices         VoiceClip[]
+
+  @@index([projectId])
+}
+
+// ==========================================
+// 5. WORLD BUILDER
+// ==========================================
+
+model World {
+  id           String     @id @default(uuid())
+  projectId    String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name         String
+  era          String?
+  magicSystem  String?    @db.Text
+  loreSummary  String?    @db.Text
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  locations    Location[]
+}
+
+model Location {
+  id          String   @id @default(uuid())
+  worldId     String
+  world       World    @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  name        String
+  description String?  @db.Text
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+}
+
+// ==========================================
+// 6. MANGA & WEBTOON STUDIO
+// ==========================================
+
+model MangaProject {
+  id          String      @id @default(uuid())
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  readDirection String    @default("RIGHT_TO_LEFT")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  pages       MangaPage[]
+}
+
+model MangaPage {
+  id             String       @id @default(uuid())
+  mangaProjectId String
+  mangaProject   MangaProject @relation(fields: [mangaProjectId], references: [id], onDelete: Cascade)
+  pageNumber     Int
+  layoutType     String       @default("4_GRID")
+  createdAt      DateTime     @default(now())
+  panels         MangaPanel[]
+
+  @@index([mangaProjectId, pageNumber])
+}
+
+model MangaPanel {
+  id          String    @id @default(uuid())
+  pageId      String
+  page        MangaPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  panelNumber Int
+  prompt      String    @db.Text
+  imageUrl    String?
+  cameraAngle String?
+  sfxKatakana String?
+  createdAt   DateTime  @default(now())
+
+  @@index([pageId, panelNumber])
+}
+
+// ==========================================
+// 7. ANIME STORYBOARD & VIDEO GENERATION
+// ==========================================
+
+model Storyboard {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  createdAt   DateTime @default(now())
+  shots       Shot[]
+}
+
+model Shot {
+  id           String     @id @default(uuid())
+  storyboardId String
+  storyboard   Storyboard @relation(fields: [storyboardId], references: [id], onDelete: Cascade)
+  shotNumber   Int
+  cameraAction String
+  durationSec  Float      @default(3.0)
+  prompt       String     @db.Text
+  keyframeUrl  String?
+  createdAt    DateTime   @default(now())
+}
+
+model AnimationProject {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  prompt      String   @db.Text
+  status      String   @default("COMPLETED")
+  fps         Int      @default(60)
+  videoUrl    String?
+  createdAt   DateTime @default(now())
+}
+
+// ==========================================
+// 8. VOICE & MUSIC STUDIO
+// ==========================================
+
+model VoiceClip {
+  id          String     @id @default(uuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  characterId String?
+  character   Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  scriptText  String     @db.Text
+  emotion     String     @default("dramatic")
+  voiceModel  String     @default("Gemini-Neural-JP")
+  audioUrl    String?
+  createdAt   DateTime   @default(now())
+}
+
+model MusicTrack {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  genre       String
+  audioUrl    String?
+  createdAt   DateTime @default(now())
+}
+
+// ==========================================
+// 9. ASSET MANAGEMENT & STORAGE
+// ==========================================
+
+model Asset {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  fileUrl     String
+  fileType    String
+  sizeBytes   BigInt   @default(0)
+  createdAt   DateTime @default(now())
+}
+
+// ==========================================
+// 10. MARKETPLACE & COMMUNITY
+// ==========================================
+
+model MarketplaceItem {
+  id          String   @id @default(uuid())
+  sellerId    String
+  seller      User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  title       String
+  description String   @db.Text
+  priceTokens Int      @default(100)
+  assetType   String
+  previewUrl  String?
+  rating      Float    @default(5.0)
+  createdAt   DateTime @default(now())
+  orders      Order[]
+}
+
+model Order {
+  id        String          @id @default(uuid())
+  itemId    String
+  item      MarketplaceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  buyerId   String
+  buyer     User            @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  tokens    Int
+  createdAt DateTime        @default(now())
+}
+
+model Post {
+  id        String    @id @default(uuid())
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String    @db.Text
+  imageUrl  String?
+  likes     Like[]
+  comments  Comment[]
+  createdAt DateTime  @default(now())
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+// ==========================================
+// 11. BILLING & SUBSCRIPTIONS
+// ==========================================
+
+model Subscription {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeSubscriptionId String   @unique
+  plan                 PlanTier @default(PRO)
+  status               String   @default("active")
+  currentPeriodEnd     DateTime
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// ==========================================
+// 12. AI AUDIT LOGGING & SECURITY
+// ==========================================
+
+model AiRequestLog {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modelName     String
+  promptTokens  Int      @default(0)
+  responseTokens Int     @default(0)
+  costUsd       Float    @default(0.0)
+  status        String   @default("SUCCESS")
+  createdAt     DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+// ==========================================
+// 13. RBAC & FINE-GRAINED PERMISSIONS (PHASE 6.4)
+// ==========================================
+
+enum RoleScope {
+  SYSTEM
+  ORGANIZATION
+  TEAM
+  CUSTOM
+}
+
+model Role {
+  id                 String              @id @default(uuid())
+  code               String              @unique
+  name               String
+  scope              RoleScope           @default(SYSTEM)
+  description        String?
+  isSystem           Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  rolePermissions    RolePermission[]
+  userRoles          UserRole[]
+  organizationRoles  OrganizationRole[]
+  teamRoles          TeamRole[]
+  featurePermissions FeaturePermission[]
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  code            String           @unique
+  name            String
+  category        String
+  description     String?
+  createdAt       DateTime         @default(now())
+
+  rolePermissions RolePermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedAt    DateTime   @default(now())
+
+  @@unique([roleId, permissionId])
+}
+
+model UserRole {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId     String
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy String?
+  assignedAt DateTime @default(now())
+
+  @@unique([userId, roleId])
+}
+
+model OrganizationRole {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  roleId         String
+  role           Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedAt     DateTime @default(now())
+
+  @@unique([userId, organizationId, roleId])
+}
+
+model TeamRole {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId     String
+  roleId     String
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@unique([userId, teamId, roleId])
+}
+
+model FeaturePermission {
+  id         String   @id @default(uuid())
+  roleId     String
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  featureKey String
+  isEnabled  Boolean  @default(true)
+  configJson Json?
+  createdAt  DateTime @default(now())
+
+  @@unique([roleId, featureKey])
+}
+
+model RbacAuditLog {
+  id             String   @id @default(uuid())
+  actorId        String
+  action         String
+  targetUserId   String?
+  roleId         String?
+  permissionCode String?
+  details        Json?
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+// ==========================================
+// 14. ACCOUNT SETTINGS & SECURITY (PHASE 6.5)
+// ==========================================
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  keyPrefix   String
+  keyHash     String    @unique
+  permissions Json
+  usageCount  Int       @default(0)
+  lastUsedAt  DateTime?
+  status      String    @default("active")
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  @@index([userId])
+  @@index([keyHash])
+}
+
+model NotificationSettings {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  emailNotifications  Boolean  @default(true)
+  pushNotifications   Boolean  @default(true)
+  inAppNotifications  Boolean  @default(true)
+  marketingEmails     Boolean  @default(false)
+  securityAlerts      Boolean  @default(true)
+  productUpdates      Boolean  @default(true)
+  marketplaceActivity Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
+}
+
+model PrivacySettings {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  isPublicProfile     Boolean  @default(true)
+  hideEmail           Boolean  @default(true)
+  hideActivity        Boolean  @default(false)
+  searchVisibility    Boolean  @default(true)
+  dataExportRequested Boolean  @default(false)
+  updatedAt           DateTime @updatedAt
+}
+
+model SecurityEvent {
+  id          String   @id @default(uuid())
+  userId      String
+  eventType   String
+  description String
+  ipAddress   String?
+  device      String?
+  status      String   @default("SUCCESS")
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+
