@@ -27,7 +27,6 @@ import {
   Globe, 
   Film, 
   Video, 
-  Wand2, 
   Music, 
   Package, 
   ShoppingBag, 
@@ -48,6 +47,7 @@ const PublishStudio = lazy(() => import('./components/PublishStudio').then(({ Pu
 const UserProfileView = lazy(() => import('./components/UserProfileView').then(({ UserProfileView }) => ({ default: UserProfileView })));
 const RbacStudio = lazy(() => import('./components/RbacStudio').then(({ RbacStudio }) => ({ default: RbacStudio })));
 const AccountSettingsStudio = lazy(() => import('./components/AccountSettingsStudio').then(({ AccountSettingsStudio }) => ({ default: AccountSettingsStudio })));
+const PromptStudioView = lazy(() => import('./components/studios/PromptStudioView').then(({ PromptStudioView }) => ({ default: PromptStudioView })));
 
 const StudioSuspense: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<LoadingSkeleton rows={3} />}>{children}</Suspense>
@@ -140,14 +140,7 @@ export default function App() {
             )}
 
             {activeTab === 'prompt' && (
-              <GenericStudioView 
-                tab="prompt"
-                title="Prompt Engineering Lab"
-                subtitle="Test, optimize, and store Gemini 1.5 Pro and Imagen 3 anime prompts."
-                icon={<Wand2 className="w-6 h-6" />}
-                badge="Prompt Lab"
-                features={['Negative Prompt Matrices', 'Style Preset Injection', 'Seed Variation Tester']}
-              />
+              <StudioSuspense><PromptStudioView project={currentProject} /></StudioSuspense>
             )}
 
             {activeTab === 'voice' && (

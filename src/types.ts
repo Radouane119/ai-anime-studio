@@ -199,6 +199,19 @@ export interface VideoGeneration {
   createdAt: string;
 }
 
+export type PromptTarget = 'character' | 'manga' | 'storyboard' | 'video';
+
+export interface PromptLibraryItem {
+  id: string;
+  name: string;
+  target: PromptTarget;
+  prompt: string;
+  negativePrompt: string;
+  style: string;
+  aspectRatio: '1:1' | '16:9' | '9:16';
+  createdAt: string;
+}
+
 export interface Project {
   id: string;
   title: string;
@@ -795,7 +808,6 @@ export interface NovelStudioTelemetry {
   totalIllustrationAnchors: number;
   aiGeneratedChapters: number;
 }
-
 
 
 

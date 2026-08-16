@@ -617,6 +617,39 @@ app.post('/api/gemini/generate-image', async (req, res) => {
   }
 });
 
+// 6. Prompt Studio — transforms a creator brief into a production-ready prompt.
+app.post('/api/gemini/optimize-prompt', async (req, res) => {
+  try {
+    const { concept, target, style, aspectRatio, negativePrompt } = req.body;
+    if (!concept?.trim()) {
+      return res.status(400).json({ success: false, error: 'A creative concept is required.' });
+    }
+
+    const ai = getGenAI();
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: `You are a senior anime art director. Turn this brief into one precise, production-ready prompt for a ${target || 'character'} generation workflow.\n\nConcept: ${concept}\nStyle: ${style || 'cinematic anime'}\nAspect ratio: ${aspectRatio || '16:9'}\nExisting negative prompt: ${negativePrompt || 'none'}\n\nKeep character identity and visual continuity explicit. Do not mention model names or claim copyright styles.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            prompt: { type: Type.STRING },
+            negativePrompt: { type: Type.STRING },
+            creativeNotes: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ['prompt', 'negativePrompt', 'creativeNotes']
+        }
+      }
+    });
+
+    res.json({ success: true, result: JSON.parse(response.text || '{}') });
+  } catch (error: any) {
+    console.error('Prompt optimization error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Prompt optimization failed.' });
+  }
+});
+
 // ====================================================
 // --- PHASE 6.4 ROLE-BASED ACCESS CONTROL (RBAC) ENDPOINTS ---
 // ====================================================
