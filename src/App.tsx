@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { Project, StudioTab } from './types';
@@ -6,15 +6,6 @@ import { PRESET_PROJECTS } from './data/presetProjects';
 import { AuthProvider } from './context/AuthContext';
 import { AuthModal } from './components/AuthModal';
 import { Dashboard } from './components/Dashboard';
-import { CharacterStudio } from './components/CharacterStudio';
-import { MangaStudio } from './components/MangaStudio';
-import { AnimeStoryboard } from './components/AnimeStoryboard';
-import { VoiceStudio } from './components/VoiceStudio';
-import { VideoStudio } from './components/VideoStudio';
-import { PublishStudio } from './components/PublishStudio';
-import { UserProfileView } from './components/UserProfileView';
-import { RbacStudio } from './components/RbacStudio';
-import { AccountSettingsStudio } from './components/AccountSettingsStudio';
 import { ExportModal } from './components/ExportModal';
 import { NewProjectModal } from './components/NewProjectModal';
 
@@ -28,10 +19,7 @@ import { QuickCreateModal } from './components/shell/QuickCreateModal';
 import { NotificationsDrawer } from './components/shell/NotificationsDrawer';
 import { KeyboardShortcutsModal } from './components/shell/KeyboardShortcutsModal';
 import { GenericStudioView } from './components/studios/GenericStudioView';
-import { ProjectsWorkspaceView } from './components/studios/ProjectsWorkspaceView';
-import { WorldBuilderStudioView } from './components/studios/WorldBuilderStudioView';
-import { CharacterStudioView } from './components/studios/CharacterStudioView';
-import { NovelStudioView } from './components/studios/NovelStudioView';
+import { LoadingSkeleton } from './components/shell/LoadingSkeleton';
 
 // Studio Icons for generic studio views
 import { 
@@ -47,6 +35,23 @@ import {
   BarChart3, 
   CreditCard 
 } from 'lucide-react';
+
+const ProjectsWorkspaceView = lazy(() => import('./components/studios/ProjectsWorkspaceView').then(({ ProjectsWorkspaceView }) => ({ default: ProjectsWorkspaceView })));
+const CharacterStudioView = lazy(() => import('./components/studios/CharacterStudioView').then(({ CharacterStudioView }) => ({ default: CharacterStudioView })));
+const NovelStudioView = lazy(() => import('./components/studios/NovelStudioView').then(({ NovelStudioView }) => ({ default: NovelStudioView })));
+const WorldBuilderStudioView = lazy(() => import('./components/studios/WorldBuilderStudioView').then(({ WorldBuilderStudioView }) => ({ default: WorldBuilderStudioView })));
+const AnimeStoryboard = lazy(() => import('./components/AnimeStoryboard').then(({ AnimeStoryboard }) => ({ default: AnimeStoryboard })));
+const MangaStudio = lazy(() => import('./components/MangaStudio').then(({ MangaStudio }) => ({ default: MangaStudio })));
+const VoiceStudio = lazy(() => import('./components/VoiceStudio').then(({ VoiceStudio }) => ({ default: VoiceStudio })));
+const VideoStudio = lazy(() => import('./components/VideoStudio').then(({ VideoStudio }) => ({ default: VideoStudio })));
+const PublishStudio = lazy(() => import('./components/PublishStudio').then(({ PublishStudio }) => ({ default: PublishStudio })));
+const UserProfileView = lazy(() => import('./components/UserProfileView').then(({ UserProfileView }) => ({ default: UserProfileView })));
+const RbacStudio = lazy(() => import('./components/RbacStudio').then(({ RbacStudio }) => ({ default: RbacStudio })));
+const AccountSettingsStudio = lazy(() => import('./components/AccountSettingsStudio').then(({ AccountSettingsStudio }) => ({ default: AccountSettingsStudio })));
+
+const StudioSuspense: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Suspense fallback={<LoadingSkeleton rows={3} />}>{children}</Suspense>
+);
 
 export default function App() {
   const [projects, setProjects] = useState<Project[]>(PRESET_PROJECTS);
@@ -94,31 +99,33 @@ export default function App() {
             )}
 
             {activeTab === 'projects' && (
-              <ProjectsWorkspaceView
-                project={currentProject}
-                onTabChange={setActiveTab}
-                onSelectProject={(id) => setCurrentProjectId(id)}
-              />
+              <StudioSuspense>
+                <ProjectsWorkspaceView
+                  project={currentProject}
+                  onTabChange={setActiveTab}
+                  onSelectProject={(id) => setCurrentProjectId(id)}
+                />
+              </StudioSuspense>
             )}
 
             {activeTab === 'characters' && (
-              <CharacterStudioView project={currentProject} onUpdateProject={handleUpdateProject} />
+              <StudioSuspense><CharacterStudioView project={currentProject} onUpdateProject={handleUpdateProject} /></StudioSuspense>
             )}
 
             {activeTab === 'novel' && (
-              <NovelStudioView project={currentProject} onUpdateProject={handleUpdateProject} />
+              <StudioSuspense><NovelStudioView project={currentProject} onUpdateProject={handleUpdateProject} /></StudioSuspense>
             )}
 
             {activeTab === 'world' && (
-              <WorldBuilderStudioView project={currentProject} />
+              <StudioSuspense><WorldBuilderStudioView project={currentProject} /></StudioSuspense>
             )}
 
             {activeTab === 'storyboard' && (
-              <AnimeStoryboard project={currentProject} onUpdateProject={handleUpdateProject} />
+              <StudioSuspense><AnimeStoryboard project={currentProject} onUpdateProject={handleUpdateProject} /></StudioSuspense>
             )}
 
             {activeTab === 'manga' && (
-              <MangaStudio project={currentProject} onUpdateProject={handleUpdateProject} />
+              <StudioSuspense><MangaStudio project={currentProject} onUpdateProject={handleUpdateProject} /></StudioSuspense>
             )}
 
             {activeTab === 'anime' && (
@@ -144,7 +151,7 @@ export default function App() {
             )}
 
             {activeTab === 'voice' && (
-              <VoiceStudio project={currentProject} onUpdateProject={handleUpdateProject} />
+              <StudioSuspense><VoiceStudio project={currentProject} onUpdateProject={handleUpdateProject} /></StudioSuspense>
             )}
 
             {activeTab === 'music' && (
@@ -159,7 +166,7 @@ export default function App() {
             )}
 
             {activeTab === 'video' && (
-              <VideoStudio project={currentProject} onUpdateProject={handleUpdateProject} />
+              <StudioSuspense><VideoStudio project={currentProject} onUpdateProject={handleUpdateProject} /></StudioSuspense>
             )}
 
             {activeTab === 'assets' && (
@@ -218,19 +225,19 @@ export default function App() {
             )}
 
             {activeTab === 'publish' && (
-              <PublishStudio project={currentProject} onOpenExportModal={() => setIsExportOpen(true)} />
+              <StudioSuspense><PublishStudio project={currentProject} onOpenExportModal={() => setIsExportOpen(true)} /></StudioSuspense>
             )}
 
             {activeTab === 'profile' && (
-              <UserProfileView />
+              <StudioSuspense><UserProfileView /></StudioSuspense>
             )}
 
             {activeTab === 'rbac' || activeTab === 'admin' ? (
-              <RbacStudio />
+              <StudioSuspense><RbacStudio /></StudioSuspense>
             ) : null}
 
             {activeTab === 'settings' && (
-              <AccountSettingsStudio />
+              <StudioSuspense><AccountSettingsStudio /></StudioSuspense>
             )}
           </main>
         </div>
